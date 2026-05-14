@@ -1,5 +1,6 @@
 # 知阅 · 书籍视频检索平台
 
+
 > 一款功能强大的本地书籍/视频文件管理工具，支持多目录扫描、智能筛选、标签管理和数据库同步。
 
 ---
@@ -43,6 +44,14 @@
 - 批量删除
 - 批量标签管理
 
+### 🤖 AI 智能分析
+- 支持 OpenAI 兼容 API（OpenAI / DeepSeek / 通义千问 / 本地模型）
+- 三种分析模式：读书大纲 / 详细介绍 / 思路理解
+- 流式输出（SSE），实时显示生成内容
+- 支持自定义 Prompt
+- 生成结果可保存为 Markdown 文件 / 复制到剪贴板
+- API 配置持久化（endpoint / key / model）
+
 ---
 
 ## 技术栈
@@ -51,6 +60,46 @@
 - **语言**: C++17
 - **数据库**: SQLite (默认) / MySQL (可选)
 - **UI风格**: Fusion (跨平台一致外观)
+
+---
+
+## 架构设计
+
+### 核心模块
+
+| 模块 | 职责 | 关键特性 |
+|------|------|----------|
+| **MainWindow** | 主窗口，UI整合 | Model/View架构、MySQL双写同步、搜索防抖(200ms) |
+| **BookScanner** | 后台文件扫描 | 磁盘类型探测(HDD/SSD)、智能多线程策略、QDirIterator流式遍历 |
+| **BookModel** | 表格数据模型 | 双层数据(m_all/m_visible)、多维筛选、自定义排序 |
+| **MetadataStore** | 元数据管理 | 单例模式、JSON持久化、惰性创建 |
+| **AiAnalysisDialog** | AI分析对话框 | OpenAI兼容API、SSE流式输出、三种分析模式 |
+
+### 数据流转
+
+```
+BookScanner(后台线程) → BookInfo列表 → BookModel::setBooks()
+                                           ↓
+                    m_all(完整列表) ──筛选──> m_visible(可见列表)
+                                               ↓
+                                         QTableView显示
+                                               ↓
+                                    用户操作 → MetadataStore(内存+JSON)
+                                                    ↓
+                                         MySQL同步(可选)
+```
+
+### 技术亮点
+
+1. **智能扫描策略**：根据磁盘类型自动选择单/多线程，HDD用单线程避免磁头跳跃，SSD用多线程提高效率
+
+2. **双层数据架构**：`m_all` 存储完整扫描结果，`m_visible` 存储筛选后结果，支持快速切换筛选条件
+
+3. **元数据双写**：同时写入JSON文件和MySQL，保证数据安全
+
+4. **AI流式输出**：支持SSE(Server-Sent Events)实时显示生成内容
+
+5. **搜索防抖**：200ms延迟避免频繁搜索，提升用户体验
 
 ---
 
